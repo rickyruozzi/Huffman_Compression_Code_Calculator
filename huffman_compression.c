@@ -119,9 +119,13 @@ void printCodes(node* root, unsigned int code[], unsigned int top){
     }
 }
 
-int main(){
+int main(int argc, char *argv[]){
+    if(argc < 2){
+        fprintf(stderr, "Usage: %s <string to encode>\n", argv[0]);
+        return 1;
+    }
+    char *input = argv[1];
     unsigned int freq[NUM_CHARS] = {0}; //assegna il valore di frequenza a 0 per tutti i caratteri
-    char input[] = "esempio di stringa per la codifica di huffman"; // stringa di esempio da comprimere
     for(int i=0; input[i]!='\0'; i++){
         freq[(unsigned char)input[i]]++; //incrementiamo la frequenza di un valore ogni volta che viene individuato
     }
