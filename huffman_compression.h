@@ -1,10 +1,10 @@
 #ifndef HUFFMAN_COMPRESSION_H
 #define HUFFMAN_COMPRESSION_H
-#define NUM_CHARS 256 // codificheremo tutti i caratteri ASCII
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
+
+#define NUM_CHARS 256 // codificheremo tutti i caratteri ASCII
+
 
 typedef struct node{
     unsigned char c; // carattere codificato
@@ -33,25 +33,10 @@ node* create_node(unsigned char C, unsigned int F){
 }
 
 //scambio di due nodi
-void swap(node* a, node* b){
-    node temp = *a;
-    *a = *b;
-    *b = temp;
-}
-
-int parent(int i) {
-    if (i == 0)
-        return -1; // la radice non ha padre
-    return (i - 1) / 2;
-}
-
-int leftson(int i) {
-    return 2 * i + 1;
-}
-
-int rightson(int i) {
-    return 2 * i + 2;
-}
+void swap(node* a, node* b);
+int parent(int i);
+int leftson(int i);
+int rightson(int i);
 
 void heapify(minHeap* heap, int i);
 node* extractMin(minHeap* heap);
@@ -59,3 +44,4 @@ void insertHeap(minHeap* heap, node* node);
 
 node* buildHuffmanTree(unsigned int freq[NUM_CHARS]);
 void printCodes(node* root, unsigned int code[], unsigned int top);
+#endif

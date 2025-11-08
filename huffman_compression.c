@@ -1,5 +1,25 @@
 #include "./huffman_compression.h"
 
+void swap(node* a, node* b){
+    node temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
+int parent(int i) {
+    if (i == 0)
+        return -1; // la radice non ha padre
+    return (i - 1) / 2;
+}
+
+int leftson(int i) {
+    return 2 * i + 1;
+}
+
+int rightson(int i) {
+    return 2 * i + 2;
+}
+
 //le seguenti funzioni ci serviranno per trovare il valore minimo delle frequenze dei caratteri gestendole tramite un minHeap
 
 void heapify(minHeap *heap, int i){
@@ -78,6 +98,7 @@ node* buildHuffmanTree(unsigned int freq[NUM_CHARS]){
 }
 
 void printCodes(node* root, unsigned int code[], unsigned int top){
+    if(root == NULL) return;
     //se esiste un figlio sinistro aggiungiamo uno zero
     if(root->left){
         code[top]=0;
