@@ -57,4 +57,5 @@ void heapify(minHeap* heap, int i);
 node* extractMin(minHeap* heap);
 void insertHeap(minHeap* heap, node* node);
 
-node* buildHuffmanTree(char chars[], int freqs[], int n);
+node* buildHuffmanTree(unsigned int freq[NUM_CHARS]);
+void printCodes(node* root, unsigned int code[], unsigned int top);

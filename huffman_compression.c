@@ -97,3 +97,15 @@ void printCodes(node* root, unsigned int code[], unsigned int top){
         printf("\n");
     }
 }
+
+int main(){
+    unsigned int freq[NUM_CHARS] = {0}; //assegna il valore di frequenza a 0 per tutti i caratteri
+    char input[] = "esempio di stringa per la codifica di huffman"; // stringa di esempio da comprimere
+    for(int i=0; input[i]!='\0'; i++){
+        freq[(unsigned char)input[i]]++; //incrementiamo la frequenza di un valore ogni volta che viene individuato
+    }
+    node* root = buildHuffmanTree(freq); //costruiamo l'albero di Huffman
+    unsigned int code[NUM_CHARS];  //array per memorizzare il codice
+    printCodes(root, code, 0); //all'interno della funzione avviene il salvataggio oltre che la stampa
+    return 0;
+}
