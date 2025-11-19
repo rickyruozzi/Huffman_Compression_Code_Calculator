@@ -137,6 +137,7 @@ void compress(const char* newfile, char** codes, unsigned int freq[], char* inpu
         fclose(out);
         return;
     }
+    unsigned int total_bits = 0;
     int bitCount=0;
     unsigned char buffer=0;
     for(int i=0; input[i]!='\0'; i++){
@@ -150,6 +151,7 @@ void compress(const char* newfile, char** codes, unsigned int freq[], char* inpu
             }
             //per bit nullo è già inizializzato in automatico a 0;
             bitCount++; //incrementiamo il bitcount per la lettura del prossimo valore
+            total_bits++;
             if(bitCount==8){ //arrivati ad 8 il byte è completo e possiamo scriverlo sul file
                 fwrite(&buffer, sizeof(unsigned char), 1, out);
                 buffer=0; //svuotiamo poi il buffer e azzeriamo il bit count per il prossimo carattere
@@ -160,6 +162,8 @@ void compress(const char* newfile, char** codes, unsigned int freq[], char* inpu
     if(bitCount>0){ //gestione di eventuali bit rimasti alla fine
         fwrite(&buffer, sizeof(unsigned char), 1, out);
     }
+    // Scrivi il numero totale di bit
+    fwrite(&total_bits, sizeof(unsigned int), 1, out);
     fclose(out);
 }
 
@@ -200,12 +204,26 @@ void decompress(const char* infile, const char* outfile) {
         fclose(out);
         return;
     }
+    // Leggi il numero totale di bit dalla fine del file
+    fseek(in, -sizeof(unsigned int), SEEK_END);
+    unsigned int total_bits;    //abbiamo messo il numero di beat letti alla fine del file
+    if (fread(&total_bits, sizeof(unsigned int), 1, in) != 1) {
+        fprintf(stderr, "Errore nella lettura del numero totale di bit da %s\n", infile);
+        fclose(in);
+        fclose(out);
+        freeTree(root);
+        return;
+    }
+    // Torna alla posizione dopo l'header
+    fseek(in, NUM_CHARS * sizeof(unsigned int), SEEK_SET);
+
     node* current=root;  //imposta il nodo corrente sulla radice
     unsigned char byte;
-    int position=0;
-    while(fread(&byte, sizeof(unsigned char),1,in)==1){
-        for(int k=0; k<8; k++){
-            int bit = (byte >> k) & 1;  
+    unsigned int bits_processed = 0;
+    while(bits_processed < total_bits && fread(&byte, sizeof(unsigned char),1,in)==1){
+        for(int k=7; k>=0; k--){
+            if(bits_processed >= total_bits) break;
+            int bit = (byte >> k) & 1;
             /*spostando in primma posizione il bit e mettendolo in and logico con 11111111 otteniamo
             il valore del bit*/
             if(bit==0){
@@ -218,6 +236,7 @@ void decompress(const char* infile, const char* outfile) {
                 fputc(current->c,out); //raggiunta la foglia usiamo fputc per inserire un carattere nel file alla posizione puntata
                 current=root; //reimpostiamo il nodo corrente sulla radice
             }
+            bits_processed++;
         }
     }
     fclose(in);
