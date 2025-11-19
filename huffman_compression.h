@@ -43,5 +43,15 @@ node* extractMin(minHeap* heap);
 void insertHeap(minHeap* heap, node* node);
 
 node* buildHuffmanTree(unsigned int freq[NUM_CHARS]);
-void printCodes(node* root, unsigned int code[], unsigned int top);
+void generateCodes(node* root, unsigned int code[], unsigned int top, char** codes);
+
+/* compress: scrive prima la tabella delle frequenze (header) e poi la sequenza di bit codificata */
+void compress(const char* newfile, char** codes, unsigned int freq[], char* input);
+
+/* decompress: legge la tabella delle frequenze dal file compresso, ricostruisce l'albero
+    e decodifica il flusso di bit scrivendo l'output su outfile */
+void decompress(const char* infile, const char* outfile);
+
+/* libera ricorsivamente l'albero */
+void freeTree(node* root);
 #endif

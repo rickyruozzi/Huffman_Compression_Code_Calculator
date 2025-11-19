@@ -134,7 +134,7 @@ void compress(const char* newfile, char** codes, unsigned int freq[], char* inpu
     for(int i=0; input[i]!='\0'; i++){
         unsigned char c = (unsigned char)input[i]; //preleva dall'input un carattere
         char* code = codes[c]; //recupera il codice di quel carattere
-    for(int j=0; code[j]!='\0';j++){
+        for(int j=0; code[j]!='\0';j++){
             int bit = code[j]-'0';
             if(bit==1){
                 buffer |= (1<<(7-bitCount)); //shiftiamo il bit nella sua posizione
@@ -152,10 +152,36 @@ void compress(const char* newfile, char** codes, unsigned int freq[], char* inpu
     if(bitCount>0){ //gestione di eventuali bit rimasti alla fine
         fwrite(&buffer, sizeof(unsigned char), 1, out);
     }
+    fclose(out);
 }
 
 /*il file bin già si aspetta sequenze di bit (byte), quindi a noi basta scrivere i bit in
 maniera corretta, bufferizzandoli come abbiamo visto, in modo da scrivere un byte alla volta*/
+
+void freeTree(node* root) {
+    if (root == NULL) return;
+    freeTree(root->left);
+    freeTree(root->right);
+    free(root);
+}
+
+void decompress(const char* infile, const char* outfile, char** codes, unsigned int freq[]){
+    FILE* IN = fopen(infile, 'rb');
+    FILE* OUT=fopen(outfile,"w");
+    if (IN==NULL || OUT==NULL){
+        perror("Errore nell'apertura di uno dei file durante la decompressione");
+        exit(EXIT_FAILURE);
+    }
+    unsigned int freq[NUM_CHARS];
+    size_t nr = fread(freq, sizeof(unsigned int), NUM_CHARS, IN);
+    if (nr != NUM_CHARS) {
+        fprintf(stderr, "Errore: header delle frequenze corrotto o file troppo corto (letto %zu/%d).\n", nread, NUM_CHARS);
+        fclose(IN);
+        return;
+    }
+    fclose(IN);
+    fclose(OUT);
+}
 
 int main(int argc, char *argv[]){
     if(argc < 2){
