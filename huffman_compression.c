@@ -1,4 +1,5 @@
 #include "./huffman_compression.h"
+#include <string.h>
 
 void swap(node* a, node* b){
     node temp = *a;
@@ -97,40 +98,219 @@ node* buildHuffmanTree(unsigned int freq[NUM_CHARS]){
     return root;
 }
 
-void printCodes(node* root, unsigned int code[], unsigned int top){
+void generateCodes(node* root, unsigned int code[], unsigned int top, char** codes){
     if(root == NULL) return;
     //se esiste un figlio sinistro aggiungiamo uno zero
     if(root->left){
         code[top]=0;
-        printCodes(root->left, code, top+1);
+        generateCodes(root->left, code, top+1, codes); //se esiste un figlio sinistro chiamiamo ricorsivamente la funzione su di esso
     }
     //se esiste il figlio destro aggiungismo un 1 al codice
     if(root->right){
         code[top]=1;
-        printCodes(root->right, code, top+1);
+        generateCodes(root->right, code, top+1, codes); //stessa cosa per il figlio destro
     }
-    //se non esistono figli significa che siam arrivati ad un carattere
+    //se non esistono figli significa che siamo arrivati ad un carattere
     if(!(root->left) && !(root->right)){
-        printf("Carattere: %c frequenza: %u codice: ", root->c, root->f);
-        for(unsigned int i=0; i<top; i++){ //stampiamo il codice fino al punto top, questo perchè nel worst case potremmo avere NUM_CHARS-1 valori
-            printf("%u", code[i]);
+        codes[root->c] = (char*)malloc((top + 1) * sizeof(char)); //alloca nell'array di stringhe codes una nuova stringa
+        if(codes[root->c] == NULL){
+            fprintf(stderr, "Allocazione fallita per codice.\n");
+            exit(EXIT_FAILURE);
         }
-        printf("\n");
+        for(unsigned int i=0; i<top; i++){  //carica il codice in codes[nodo] carattere per carattere
+            codes[root->c][i] = '0' + code[i];
+        }
+        codes[root->c][top] = '\0'; //seguito dal terminatore
     }
 }
 
+void compress(const char* newfile, char** codes, unsigned int freq[], char* input){
+    FILE* out = fopen(newfile, "wb");
+    if (out == NULL) {
+        fprintf(stderr, "Errore nell'apertura del file di output %s\n", newfile);
+        return; //error handling nell'apertura del file
+    }
+    /* scriviamo l'header delle frequenze (in modo che la decompressione possa ricostruire l'albero)
+       Nota: usa lo stesso tipo e ordine di byte che leggerà decompress */
+    if (fwrite(freq, sizeof(unsigned int), NUM_CHARS, out) != NUM_CHARS) {
+        fprintf(stderr, "Errore nella scrittura dell'header delle frequenze su %s\n", newfile);
+        fclose(out);
+        return;
+    }
+    unsigned int total_bits = 0;
+    int bitCount=0;
+    unsigned char buffer=0;
+    for(int i=0; input[i]!='\0'; i++){
+        unsigned char c = (unsigned char)input[i]; //preleva dall'input un carattere
+        char* code = codes[c]; //recupera il codice di quel carattere
+        for(int j=0; code[j]!='\0';j++){
+            int bit = code[j]-'0';
+            if(bit==1){
+                buffer |= (1<<(7-bitCount)); //shiftiamo il bit nella sua posizione
+                /*7-0 che sarà il primo bit andrà in posizione 7, quindi darà il primo, ogni volta lo inseriremo nella posizione successiva del buffer*/
+            }
+            //per bit nullo è già inizializzato in automatico a 0;
+            bitCount++; //incrementiamo il bitcount per la lettura del prossimo valore
+            total_bits++;
+            if(bitCount==8){ //arrivati ad 8 il byte è completo e possiamo scriverlo sul file
+                fwrite(&buffer, sizeof(unsigned char), 1, out);
+                buffer=0; //svuotiamo poi il buffer e azzeriamo il bit count per il prossimo carattere
+                bitCount=0; 
+            }
+        }
+    }
+    if(bitCount>0){ //gestione di eventuali bit rimasti alla fine
+        fwrite(&buffer, sizeof(unsigned char), 1, out);
+    }
+    // Scrivi il numero totale di bit
+    fwrite(&total_bits, sizeof(unsigned int), 1, out);
+    fclose(out);
+}
+
+/*il file bin già si aspetta sequenze di bit (byte), quindi a noi basta scrivere i bit in
+maniera corretta, bufferizzandoli come abbiamo visto, in modo da scrivere un byte alla volta*/
+
+void freeTree(node* root) {
+    if (root == NULL) return;
+    freeTree(root->left);
+    freeTree(root->right);
+    free(root);
+}
+
+void decompress(const char* infile, const char* outfile) {
+    FILE* in = fopen(infile, "rb");
+    if (in == NULL) {
+        fprintf(stderr, "Errore nell'apertura del file %s\n", infile);
+        return;
+    }
+    FILE* out = fopen(outfile, "w");
+    if (out == NULL) {
+        fprintf(stderr, "Errore nell'apertura del file %s\n", outfile);
+        fclose(in);
+        return;
+    }
+    unsigned int freq[NUM_CHARS]; //array che conterrà le frequenze dei caratteri
+    if (fread(freq, sizeof(unsigned int), NUM_CHARS, in) != NUM_CHARS) {
+        fprintf(stderr, "Errore nella lettura dell'header delle frequenze da %s\n", infile);
+        fclose(in);
+        fclose(out);
+        return;
+    }
+    node* root=buildHuffmanTree(freq);
+    if(root==NULL){
+        perror("impossibile creare l'albero delle codifiche nella decompressione.");
+        exit(EXIT_FAILURE);
+        fclose(in);
+        fclose(out);
+        return;
+    }
+    // Leggi il numero totale di bit dalla fine del file
+    fseek(in, -sizeof(unsigned int), SEEK_END);
+    unsigned int total_bits;    //abbiamo messo il numero di beat letti alla fine del file
+    if (fread(&total_bits, sizeof(unsigned int), 1, in) != 1) {
+        fprintf(stderr, "Errore nella lettura del numero totale di bit da %s\n", infile);
+        fclose(in);
+        fclose(out);
+        freeTree(root);
+        return;
+    }
+    // Torna alla posizione dopo l'header
+    fseek(in, NUM_CHARS * sizeof(unsigned int), SEEK_SET);
+
+    node* current=root;  //imposta il nodo corrente sulla radice
+    unsigned char byte;
+    unsigned int bits_processed = 0;
+    while(bits_processed < total_bits && fread(&byte, sizeof(unsigned char),1,in)==1){
+        for(int k=7; k>=0; k--){
+            if(bits_processed >= total_bits) break;
+            int bit = (byte >> k) & 1;
+            /*spostando in primma posizione il bit e mettendolo in and logico con 11111111 otteniamo
+            il valore del bit*/
+            if(bit==0){
+                current=current->left;
+            }
+            else{
+                current=current->right;
+            } //discende l'albero fino ad una foglia
+            if(current->left==NULL && current->right==NULL){
+                fputc(current->c,out); //raggiunta la foglia usiamo fputc per inserire un carattere nel file alla posizione puntata
+                current=root; //reimpostiamo il nodo corrente sulla radice
+            }
+            bits_processed++;
+        }
+    }
+    fclose(in);
+    fclose(out);
+    freeTree(root);
+}
+
+
 int main(int argc, char *argv[]){
-    if(argc < 2){
-        fprintf(stderr, "Usage: %s <string to encode>\n", argv[0]);
+    if (argc < 3) {
+        fprintf(stderr, "Usage: %s -c <input_file> <output_file> or %s -d <compressed_file> <output_file>\n", argv[0], argv[0]);
         return 1;
     }
-    char *input = argv[1];
-    unsigned int freq[NUM_CHARS] = {0}; //assegna il valore di frequenza a 0 per tutti i caratteri
-    for(int i=0; input[i]!='\0'; i++){
-        freq[(unsigned char)input[i]]++; //incrementiamo la frequenza di un valore ogni volta che viene individuato
+
+    if (strcmp(argv[1], "-c") == 0) {
+        // Compressione
+        if (argc != 4) {
+            fprintf(stderr, "Usage for compression: %s -c <input_file> <output_file>\n", argv[0]);
+            return 1;
+        }
+        char *input_file = argv[2];
+        char *output_file = argv[3];
+
+        FILE *file = fopen(input_file, "rb");
+        if (file == NULL) {
+            fprintf(stderr, "Errore nell'apertura del file %s\n", input_file);
+            return 1;
+        }
+        fseek(file, 0, SEEK_END);
+        long file_size = ftell(file);
+        fseek(file, 0, SEEK_SET);
+        char *input = (char*)malloc(file_size + 1);
+        if (input == NULL) {
+            fprintf(stderr, "Memory allocation failed\n");
+            fclose(file);
+            return 1;
+        }
+        size_t read_size = fread(input, 1, file_size, file);
+        input[read_size] = '\0';
+        fclose(file);
+
+        unsigned int freq[NUM_CHARS] = {0};
+        for (int i = 0; input[i] != '\0'; i++) {
+            freq[(unsigned char)input[i]]++;
+        }
+        node* root = buildHuffmanTree(freq);
+        unsigned int code_arr[NUM_CHARS];
+        char** codes = (char**)malloc(NUM_CHARS * sizeof(char*));
+        for (int i = 0; i < NUM_CHARS; i++) {
+            codes[i] = NULL;
+        }
+        generateCodes(root, code_arr, 0, codes);
+        compress(output_file, codes, freq, input);
+        for (int i = 0; i < NUM_CHARS; i++) {
+            if (codes[i] != NULL) {
+                free(codes[i]);
+            }
+        }
+        free(codes);
+        freeTree(root);
+        free(input);
+    } else if (strcmp(argv[1], "-d") == 0) {
+        // Decompressione
+        if (argc != 4) {
+            fprintf(stderr, "Usage for decompression: %s -d <compressed_file> <output_file>\n", argv[0]);
+            return 1;
+        }
+        char *compressed_file = argv[2];
+        char *output_file = argv[3];
+        decompress(compressed_file, output_file);
+    } else {
+        fprintf(stderr, "Invalid option. Use -c for compression or -d for decompression.\n");
+        return 1;
     }
-    node* root = buildHuffmanTree(freq); //costruiamo l'albero di Huffman
-    unsigned int code[NUM_CHARS];  //array per memorizzare il codice
-    printCodes(root, code, 0); //all'interno della funzione avviene il salvataggio oltre che la stampa
+
     return 0;
 }
