@@ -247,14 +247,14 @@ void decompress(const char* infile, const char* outfile) {
 
 int main(int argc, char *argv[]){
     if (argc < 3) {
-        fprintf(stderr, "Usage: %s -c <input_file> <output_file> or %s -d <compressed_file> <output_file>\n", argv[0], argv[0]);
+        fprintf(stderr, "Utilizzo: %s -c <input_file> <output_file> or %s -d <compressed_file> <output_file>\n", argv[0], argv[0]);
         return 1;
     }
 
     if (strcmp(argv[1], "-c") == 0) {
         // Compressione
         if (argc != 4) {
-            fprintf(stderr, "Usage for compression: %s -c <input_file> <output_file>\n", argv[0]);
+            fprintf(stderr, "Uso per la compressione: %s -c <input_file> <output_file>\n", argv[0]);
             return 1;
         }
         char *input_file = argv[2];
@@ -270,7 +270,7 @@ int main(int argc, char *argv[]){
         fseek(file, 0, SEEK_SET);
         char *input = (char*)malloc(file_size + 1);
         if (input == NULL) {
-            fprintf(stderr, "Memory allocation failed\n");
+            fprintf(stderr, "Allocazione della memoria fallita\n");
             fclose(file);
             return 1;
         }
@@ -301,14 +301,14 @@ int main(int argc, char *argv[]){
     } else if (strcmp(argv[1], "-d") == 0) {
         // Decompressione
         if (argc != 4) {
-            fprintf(stderr, "Usage for decompression: %s -d <compressed_file> <output_file>\n", argv[0]);
+            fprintf(stderr, "Uso per la decompressione: %s -d <compressed_file> <output_file>\n", argv[0]);
             return 1;
         }
         char *compressed_file = argv[2];
         char *output_file = argv[3];
         decompress(compressed_file, output_file);
     } else {
-        fprintf(stderr, "Invalid option. Use -c for compression or -d for decompression.\n");
+        fprintf(stderr, "Opzione invalida. Usa -c per la compressione o -d per la decompressione.\n");
         return 1;
     }
 
