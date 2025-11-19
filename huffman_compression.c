@@ -134,7 +134,7 @@ void compress(const char* newfile, char** codes, unsigned int freq[], char* inpu
     for(int i=0; input[i]!='\0'; i++){
         unsigned char c = (unsigned char)input[i]; //preleva dall'input un carattere
         char* code = codes[c]; //recupera il codice di quel carattere
-        for(int j=0; code[j]='\0';j++){
+    for(int j=0; code[j]!='\0';j++){
             int bit = code[j]-'0';
             if(bit==1){
                 buffer |= (1<<(7-bitCount)); //shiftiamo il bit nella sua posizione
